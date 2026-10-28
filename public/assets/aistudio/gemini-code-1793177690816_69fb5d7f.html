@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyTax Vault & Tax Companion (Malaysia)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- jsPDF & autoTable for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        lhdnBlue: '#1e3a8a',
+                        lhdnGold: '#f59e0b',
+                        lhdnDark: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+        .nav-btn.active { background-color: #1e3a8a; color: #ffffff; }
+        .nav-btn { transition: all 0.2s ease; }
+        @media print {
+            aside, header, .no-print { display: none !important; }
+            main { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+            .tab-pane { display: block !important; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-slate-800">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 shadow-sm flex flex-col justify-between hidden md:flex z-20">
+        <div>
+            <!-- Logo Header -->
+            <div class="p-5 border-b border-slate-100 flex items-center gap-3">
+                <div class="bg-lhdnBlue text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-lhdnBlue leading-tight">MyTax<span class="text-amber-500">Vault</span></h1>
+                    <p class="text-[10px] text-slate-400 font-medium">LHDN BE Personal Suite</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="p-3 space-y-1 text-sm font-semibold">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-btn active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+                </button>
+                <button onclick="switchTab('income')" id="btn-income" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-wallet w-5 text-center"></i> Income (Borang B)
+                </button>
+                <button onclick="switchTab('reliefs')" id="btn-reliefs" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> Reliefs (Pelepasan)
+                </button>
+                <button onclick="switchTab('vault')" id="btn-vault" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-receipt w-5 text-center"></i> Receipt Vault
+                </button>
+                <button onclick="switchTab('compare')" id="btn-compare" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-code-compare w-5 text-center"></i> Multi-Year Compare
+                </button>
+            </nav>
+        </div>
+
+        <!-- Backup & Storage Management in Sidebar -->
+        <div class="p-4 border-t border-slate-100 bg-slate-50 space-y-2">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Data Management</div>
+            <button onclick="exportJSON()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 text-slate-700 py-1.5 px-3 rounded-lg text-xs font-bold hover:bg-slate-100 shadow-sm transition">
+                <i class="fa-solid fa-download text-teal-600"></i> Backup (JSON)
+            </button>
+            <label class="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 text-slate-700 py-1.5 px-3 rounded-lg text-xs font-bold hover:bg-slate-100 shadow-sm cursor-pointer transition">
+                <i class="fa-solid fa-upload text-blue-600"></i> Restore (JSON)
+                <input type="file" id="json-file-input" accept=".json" class="hidden" onchange="importJSON(event)">
+            </label>
+            <button onclick="resetCurrentYearData()" class="w-full flex items-center justify-center gap-2 text-rose-600 hover:text-rose-800 py-1 text-[11px] font-medium transition">
+                <i class="fa-solid fa-rotate-left"></i> Reset Current Year
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+
+        <!-- Top Header Bar -->
+        <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold text-slate-900" id="tab-heading">Dashboard Overview</h2>
+            </div>
+
+            <!-- Controls: Assessment Year Selector & Action Buttons -->
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <label for="ya-select" class="text-xs font-bold text-slate-600 pl-2">Tahun Taksiran (YA):</label>
+                    <select id="ya-select" onchange="changeYear(this.value)" class="bg-white font-bold text-xs text-lhdnBlue border border-slate-300 rounded px-2.5 py-1 focus:ring-1 focus:ring-lhdnBlue outline-none shadow-sm">
+                        <option value="2026">YA 2026</option>
+                        <option value="2025" selected>YA 2025</option>
+                        <option value="2024">YA 2024</option>
+                        <option value="2023">YA 2023</option>
+                    </select>
+                </div>
+
+                <button onclick="generatePDFReport()" class="flex items-center gap-2 bg-lhdnBlue hover:bg-blue-900 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition">
+                    <i class="fa-solid fa-file-pdf text-amber-400"></i> Export Report (PDF)
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Wrapper -->
+        <div class="p-6 max-w-6xl mx-auto w-full space-y-6">
+
+            <!-- 1. DASHBOARD TAB -->
+            <div id="dashboard" class="tab-pane active space-y-6">
+                <!-- Summary Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Aggregate Income (B4)</span>
+                        <h3 class="text-2xl font-black text-slate-900 mt-1" id="dash-agg-income">RM 0.00</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Employment, rents &amp; perks</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Reliefs (B9/F19)</span>
+                        <h3 class="text-2xl font-black text-emerald-600 mt-1" id="dash-total-reliefs">RM 9,000.00</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Capped to legal limits</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Chargeable Income (B10)</span>
+                        <h3 class="text-2xl font-black text-lhdnBlue mt-1" id="dash-chargeable-income">RM 0.00</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Subjected to tax brackets</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400" id="dash-tax-title">Net Tax Outcome</span>
+                        <h3 class="text-2xl font-black text-slate-900 mt-1" id="dash-net-tax">RM 0.00</h3>
+                        <p class="text-[11px] font-semibold mt-1" id="dash-tax-subtitle">Calculated after PCB deduction</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Tax Breakdown Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-lhdnBlue"></i> Official Borang BE Computation Breakdown
+                        </h3>
+                        <span class="text-xs font-bold text-slate-400" id="computation-ya-badge">Tahun Taksiran 2025</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <!-- Left Calculation Column -->
+                        <div class="space-y-2.5">
+                            <div class="flex justify-between text-slate-600">
+                                <span>B1. Statutory Employment Income:</span>
+                                <span class="font-semibold text-slate-900" id="lbl-b1">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-600">
+                                <span>B2 &amp; B3. Rents, Royalties, Pensions:</span>
+                                <span class="font-semibold text-slate-900" id="lbl-b23">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between font-bold border-t border-slate-200 pt-2 text-slate-900">
+                                <span>B4. Aggregate Income (B1 + B2 + B3):</span>
+                                <span id="lbl-b4">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between text-emerald-600">
+                                <span>B5. Approved Gifts/Donations (Capped at 10%):</span>
+                                <span id="lbl-b5">- RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between font-bold border-t border-slate-200 pt-2 text-slate-900">
+                                <span>B6. Total Income (B4 - B5):</span>
+                                <span id="lbl-b6">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between text-emerald-600">
+                                <span>B9. Total Reliefs Claimed (From Bahagian F):</span>
+                                <span id="lbl-b9">- RM 9,000.00</span>
+                            </div>
+                            <div class="flex justify-between font-black text-base border-t-2 border-slate-300 pt-2 text-lhdnBlue">
+                                <span>B10. Chargeable Income (Pendapatan Bercukai):</span>
+                                <span id="lbl-b10">RM 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Right Calculation Column: Brackets & Final Result -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Tax Schedule Calculation</div>
+                                <div class="flex justify-between text-slate-600 text-xs">
+                                    <span>Tax on base bracket:</span>
+                                    <span class="font-semibold text-slate-900" id="lbl-tax-base">RM 0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600 text-xs">
+                                    <span>Tax on remaining balance:</span>
+                                    <span class="font-semibold text-slate-900" id="lbl-tax-balance">RM 0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600 text-xs">
+                                    <span>Tax Rebate (Self &le; RM35,000):</span>
+                                    <span class="font-semibold text-emerald-600" id="lbl-tax-rebate">- RM 0.00</span>
+                                </div>
+                                <div class="flex justify-between font-bold text-slate-900 border-t pt-1.5">
+                                    <span>B12. Total Income Tax Charged:</span>
+                                    <span id="lbl-b12">RM 0.00</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600 text-xs">
+                                    <span>B18. Monthly Tax Deductions (PCB):</span>
+                                    <span class="font-semibold text-emerald-600" id="lbl-b18">- RM 0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Final Status Box -->
+                            <div class="border-t-2 border-slate-300 pt-3">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="text-xs font-bold uppercase tracking-wide text-slate-700" id="final-label">B19. Balance Tax Payable:</span>
+                                    <span class="text-xl font-black" id="final-amount">RM 0.00</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5" id="final-comment">Based on resident individual rates.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. INCOME DECLARATION TAB -->
+            <div id="income" class="tab-pane bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                <div class="border-b pb-3">
+                    <h3 class="text-base font-bold text-slate-900">Bahagian B: Pendapatan Berkanun &amp; Jumlah Pendapatan</h3>
+                    <p class="text-xs text-slate-500">Key in your annual EA form figures and other taxable earnings.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">B1. Statutory Employment Income (Penggajian)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="in-emp" class="w-full pl-10 pr-3 py-2 border rounded-xl font-medium focus:ring-2 focus:ring-lhdnBlue outline-none" placeholder="0.00" oninput="saveCurrentYearAndRecalculate()">
+                        </div>
+                        <span class="text-[11px] text-slate-400">Total gross employment income minus allowable employment deductions.</span>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">B2. Statutory Income from Rents (Sewa)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="in-rent" class="w-full pl-10 pr-3 py-2 border rounded-xl font-medium focus:ring-2 focus:ring-lhdnBlue outline-none" placeholder="0.00" oninput="saveCurrentYearAndRecalculate()">
+                        </div>
+                        <span class="text-[11px] text-slate-400">Net rental income after deducting allowable maintenance and quit rent.</span>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">B3. Interest, Discounts, Royalties, Premiums, Pensions</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="in-other" class="w-full pl-10 pr-3 py-2 border rounded-xl font-medium focus:ring-2 focus:ring-lhdnBlue outline-none" placeholder="0.00" oninput="saveCurrentYearAndRecalculate()">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">B5. Approved Donations / Hadiah / Sumbangan</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="in-donations" class="w-full pl-10 pr-3 py-2 border rounded-xl font-medium focus:ring-2 focus:ring-lhdnBlue outline-none" placeholder="0.00" oninput="saveCurrentYearAndRecalculate()">
+                        </div>
+                        <span class="text-[11px] text-slate-400">Under Sec 44(6). Automatically capped at 10% of Aggregate Income.</span>
+                    </div>
+
+                    <div class="md:col-span-2 pt-2 border-t">
+                        <label class="block font-bold text-slate-900 mb-1">B18. Potongan Cukai Bulanan (PCB) Paid for Year</label>
+                        <div class="relative max-w-md">
+                            <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="in-pcb" class="w-full pl-10 pr-3 py-2 border rounded-xl font-bold text-lhdnBlue focus:ring-2 focus:ring-lhdnBlue outline-none" placeholder="0.00" oninput="saveCurrentYearAndRecalculate()">
+                        </div>
+                        <span class="text-[11px] text-slate-400">Refer to box D of your EA Form (Jumlah Potongan Cukai Berjadual).</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. TAX RELIEFS TAB (BAHAGIAN F) -->
+            <div id="reliefs" class="tab-pane bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Bahagian F: Pelepasan Cukai (Individual Tax Reliefs)</h3>
+                        <p class="text-xs text-slate-500">Limits conform strictly to LHDN rules. Values entered above the limit are capped automatically.</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400 block font-bold">Total Eligible Reliefs</span>
+                        <span class="text-lg font-black text-emerald-600" id="relief-header-total">RM 9,000.00</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="relief-cards-container">
+                    <!-- Populated dynamically via JS with all LHDN relief items -->
+                </div>
+            </div>
+
+            <!-- 4. RECEIPT VAULT TAB -->
+            <div id="vault" class="tab-pane space-y-6">
+                <!-- Add Receipt Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <h3 class="text-base font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-lhdnBlue"></i> Add Receipt &amp; Link to Google Drive
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold text-slate-700">
+                        <div>
+                            <label class="block mb-1">Receipt Date</label>
+                            <input type="date" id="rec-date" class="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-lhdnBlue outline-none font-medium">
+                        </div>
+
+                        <div>
+                            <label class="block mb-1">Target Tax Relief Category</label>
+                            <select id="rec-category" class="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-lhdnBlue outline-none font-medium bg-white">
+                                <option value="rel_lifestyle">F8. Lifestyle (Books, PC, Phone, Gym, Internet)</option>
+                                <option value="rel_sports">F8b. Sports Activities &amp; Equipment (Budget 2024)</option>
+                                <option value="rel_med_serious">F6. Serious Illness / Medical Exam</option>
+                                <option value="rel_med_parent">F2. Parents' Medical Expenses</option>
+                                <option value="rel_edu">F5. Education Fees (Self)</option>
+                                <option value="rel_childcare">F10. Childcare Fees (&le; 6 Years)</option>
+                                <option value="rel_sspn">F11. Net SSPN Savings</option>
+                                <option value="rel_life_ins">F15a. Life Insurance</option>
+                                <option value="rel_med_ins">F17. Medical &amp; Education Insurance</option>
+                                <option value="rel_ev">F20. EV Charging Facility</option>
+                                <option value="donation">B5. Approved Charity Donation</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block mb-1">Amount (RM)</label>
+                            <input type="number" id="rec-amount" placeholder="0.00" class="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-lhdnBlue outline-none font-medium">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block mb-1">Merchant Name &amp; Description</label>
+                            <input type="text" id="rec-desc" placeholder="e.g. Harvey Norman - iPad 10th Gen for study" class="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-lhdnBlue outline-none font-medium">
+                        </div>
+
+                        <div>
+                            <label class="block mb-1">Google Drive Shareable Link (Audit Proof)</label>
+                            <input type="url" id="rec-drive" placeholder="https://drive.google.com/file/d/..." class="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-lhdnBlue outline-none font-medium">
+                        </div>
+
+                        <div class="md:col-span-3 flex justify-end pt-2">
+                            <button onclick="addReceipt()" class="bg-lhdnBlue hover:bg-blue-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2">
+                                <i class="fa-solid fa-plus"></i> Store Receipt in Vault &amp; Auto-Add to Reliefs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Receipt List Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                        <h4 class="font-bold text-sm text-slate-800">Stored Receipts &amp; Audit Links (<span id="rec-count">0</span>)</h4>
+                        <span class="text-xs text-slate-500">Kept for 7 years as required by Section 82A ITA 1967</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 uppercase tracking-wider border-b">
+                                    <th class="px-5 py-3">Date</th>
+                                    <th class="px-5 py-3">Category</th>
+                                    <th class="px-5 py-3">Merchant / Item</th>
+                                    <th class="px-5 py-3 text-right">Amount (RM)</th>
+                                    <th class="px-5 py-3 text-center">Google Drive File</th>
+                                    <th class="px-5 py-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="receipts-tbody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="no-receipts" class="p-8 text-center text-slate-400">
+                        <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs">No receipts stored for this Assessment Year yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. MULTI-YEAR COMPARISON TAB -->
+            <div id="compare" class="tab-pane bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                <div class="border-b pb-3">
+                    <h3 class="text-base font-bold text-slate-900">Multi-Year Assessment Comparison</h3>
+                    <p class="text-xs text-slate-500">Compare income growth, tax relief efficiency, and final tax refunds side-by-side.</p>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse" id="comparison-table">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold border-b">
+                                <th class="p-3">Tax Parameter</th>
+                                <th class="p-3 text-right">YA 2023</th>
+                                <th class="p-3 text-right">YA 2024</th>
+                                <th class="p-3 text-right">YA 2025</th>
+                                <th class="p-3 text-right">YA 2026</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compare-tbody" class="divide-y divide-slate-200 font-medium">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-700 transform translate-y-20 opacity-0 transition-all duration-200 z-50">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-text">Data saved!</span>
+    </div>
+
+    <!-- APPLICATION LOGIC & DATA ENGINE -->
+    <script>
+        // MASTER CONFIGURATION: LHDN Tax Reliefs Template (2019 - 2026 updates)
+        const DEFAULT_RELIEFS_CONFIG = [
+            { id: "rel_individual", code: "F1", title: "Individu & Saudara Tanggungan", max: 9000, desc: "Automatic standard relief for resident individuals.", locked: true, defaultVal: 9000 },
+            { id: "rel_med_parent", code: "F2", title: "Perbelanjaan Perubatan Ibu Bapa", max: 8000, desc: "Medical care, dental, carer & clinical needs certified for parents.", locked: false },
+            { id: "rel_equip", code: "F3", title: "Peralatan Sokongan Asas (OKU)", max: 6000, desc: "Special supporting equipment for self, spouse, child or parent with disability.", locked: false },
+            { id: "rel_disabled_self", code: "F4", title: "Individu Kurang Upaya (OKU)", max: 6000, desc: "Deduction for certified disabled individuals (JKM registered).", locked: false },
+            { id: "rel_edu", code: "F5", title: "Yuran Pengajian Diri Sendiri", max: 7000, desc: "Masters/PhD (any field) or Non-Masters (Technical, vocational, law, scientific, IT).", locked: false },
+            { id: "rel_med_serious", code: "F6", title: "Perubatan Penyakit Serius & Pemeriksaan Kesihatan", max: 10000, desc: "Self, spouse, child: serious illness, fertility, dental (up to RM1k), full medical check-up (up to RM1k).", locked: false },
+            { id: "rel_lifestyle", code: "F8", title: "Gaya Hidup (Buku, Komputer, Telefon, Internet)", max: 2500, desc: "Reading materials, PC, laptop, smartphone, tablet, broadband internet subscription.", locked: false },
+            { id: "rel_sports", code: "F8b", title: "Gaya Hidup Sukan (Peralatan & Yuran Sukan)", max: 1000, desc: "Sports equipment, rental of sports facilities, gym memberships and sports training fees.", locked: false },
+            { id: "rel_breastfeeding", code: "F9", title: "Peralatan Penyusuan Ibu", max: 1000, desc: "Breastfeeding equipment for child <= 2 years (once every 2 assessment years).", locked: false },
+            { id: "rel_childcare", code: "F10", title: "Yuran Taman Asuhan / Tadika Berdaftar", max: 3000, desc: "Child care center or kindergarten fees for children aged 6 years and below.", locked: false },
+            { id: "rel_sspn", code: "F11", title: "Tabungan Bersih Skim SSPN", max: 8000, desc: "Net savings in National Education Savings Scheme (Total Deposits minus Withdrawals).", locked: false },
+            { id: "rel_spouse", code: "F12", title: "Suami / Isteri / Alimoni Bekas Isteri", max: 4000, desc: "Husband/Wife with no income or payment of alimony to former wife.", locked: false },
+            { id: "rel_disabled_spouse", code: "F13", title: "Suami / Isteri Kurang Upaya", max: 5000, desc: "Additional relief if husband or wife is a certified disabled person.", locked: false },
+            { id: "rel_child_under18", code: "F14a", title: "Anak Bawah 18 Tahun", max: 20000, desc: "RM2,000 per unmarried child under the age of 18 years.", locked: false },
+            { id: "rel_child_study", code: "F14b", title: "Anak 18 Tahun ke Atas (Pengajian Tinggi)", max: 32000, desc: "RM8,000 per child studying full-time at college/university (Diploma/Degree & above).", locked: false },
+            { id: "rel_life_ins", code: "F15a", title: "Insurans Nyawa / Takaful", max: 3000, desc: "Life insurance premiums or voluntary pension contributions.", locked: false },
+            { id: "rel_kwsp", code: "F15b", title: "Caruman KWSP / EPF", max: 4000, desc: "Statutory or voluntary employee contributions to approved provident funds (KWSP).", locked: false },
+            { id: "rel_prs", code: "F16", title: "Skim Persaraan Swasta (PRS) & Anuiti", max: 3000, desc: "Contributions to Private Retirement Schemes (PRS) or deferred annuities.", locked: false },
+            { id: "rel_med_ins", code: "F17", title: "Insurans Pendidikan & Perubatan", max: 3000, desc: "Medical and education insurance policies for self, spouse, or children.", locked: false },
+            { id: "rel_perkeso", code: "F18", title: "Caruman PERKESO / SOCSO (Termasuk EIS)", max: 350, desc: "Employee contributions to Social Security Organization (SOCSO) and EIS.", locked: false },
+            { id: "rel_ev", code: "F20", title: "Kemudahan Pengecasan Kenderaan Elektrik (EV)", max: 2500, desc: "Expenses on installation, rental, purchase or subscription of EV charging equipment.", locked: false }
+        ];
+
+        // Central Multi-Year State Structure
+        let taxAppState = {
+            activeYear: "2025",
+            years: {
+                "2023": createInitialYearData(),
+                "2024": createInitialYearData(),
+                "2025": createInitialYearData(),
+                "2026": createInitialYearData()
+            }
+        };
+
+        function createInitialYearData() {
+            const initialReliefs = {};
+            DEFAULT_RELIEFS_CONFIG.forEach(r => {
+                initialReliefs[r.id] = r.defaultVal || 0;
+            });
+
+            return {
+                income: { emp: 0, rent: 0, other: 0, donations: 0, pcb: 0 },
+                reliefs: initialReliefs,
+                receipts: []
+            };
+        }
+
+        // --- LOCAL STORAGE FUNCTIONS ---
+        function loadFromLocalStorage() {
+            const raw = localStorage.getItem("MYTAX_VAULT_PRO_DATA");
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.years) {
+                        taxAppState = parsed;
+                    }
+                } catch(e) {
+                    console.error("Failed to parse stored tax data", e);
+                }
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem("MYTAX_VAULT_PRO_DATA", JSON.stringify(taxAppState));
+        }
+
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = text;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2000);
+        }
+
+        // --- YEAR SWITCHING ---
+        function changeYear(selectedYear) {
+            taxAppState.activeYear = selectedYear;
+            document.getElementById('computation-ya-badge').innerText = `Tahun Taksiran ${selectedYear}`;
+            populateFormsForActiveYear();
+            recalculateAll();
+            saveToLocalStorage();
+            showToast(`Switched to YA ${selectedYear}`);
+        }
+
+        function populateFormsForActiveYear() {
+            const currentData = taxAppState.years[taxAppState.activeYear] || createInitialYearData();
+            
+            // Populate Incomes
+            document.getElementById('in-emp').value = currentData.income.emp || '';
+            document.getElementById('in-rent').value = currentData.income.rent || '';
+            document.getElementById('in-other').value = currentData.income.other || '';
+            document.getElementById('in-donations').value = currentData.income.donations || '';
+            document.getElementById('in-pcb').value = currentData.income.pcb || '';
+
+            // Populate Reliefs UI
+            renderReliefsInputs(currentData.reliefs);
+
+            // Populate Receipts
+            renderReceiptsTable();
+        }
+
+        // --- RENDER RELIEF INPUT CARDS ---
+        function renderReliefsInputs(userReliefValues) {
+            const container = document.getElementById('relief-cards-container');
+            container.innerHTML = '';
+
+            DEFAULT_RELIEFS_CONFIG.forEach(r => {
+                const val = userReliefValues[r.id] !== undefined ? userReliefValues[r.id] : (r.defaultVal || 0);
+                const isOverCap = val > r.max;
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start gap-2 mb-1">
+                            <span class="font-bold text-xs text-slate-800 leading-snug">${r.code}. ${r.title}</span>
+                            <span class="text-[10px] font-bold bg-blue-100 text-lhdnBlue px-2 py-0.5 rounded whitespace-nowrap">Had: RM ${r.max.toLocaleString()}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mb-3">${r.desc}</p>
+                    </div>
+                    <div>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-400 font-bold text-xs">RM</span>
+                            <input type="number" id="input_${r.id}" 
+                                value="${val || ''}" 
+                                ${r.locked ? 'readonly' : ''}
+                                placeholder="0.00"
+                                oninput="onReliefChange('${r.id}', this.value)"
+                                class="w-full pl-10 pr-3 py-1.5 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-lhdnBlue outline-none ${r.locked ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white'}">
+                        </div>
+                        <span id="warn_${r.id}" class="text-[10px] font-bold text-amber-600 mt-1 block ${isOverCap ? '' : 'hidden'}">
+                            Melebihi had! Nilai dituntut dikadkan kepada RM ${r.max.toLocaleString()}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function onReliefChange(reliefId, val) {
+            const numericVal = parseFloat(val) || 0;
+            const currentYearData = taxAppState.years[taxAppState.activeYear];
+            currentYearData.reliefs[reliefId] = numericVal;
+
+            const config = DEFAULT_RELIEFS_CONFIG.find(r => r.id === reliefId);
+            const warnEl = document.getElementById(`warn_${reliefId}`);
+            if (warnEl && config) {
+                if (numericVal > config.max) {
+                    warnEl.classList.remove('hidden');
+                } else {
+                    warnEl.classList.add('hidden');
+                }
+            }
+            saveCurrentYearAndRecalculate();
+        }
+
+        // --- TAX ENGINE (LHDN BRACKETS) ---
+        function calculateMalaysianTax(chargeableIncome) {
+            // Updated LHDN Individual Resident Tax Brackets (Effective YA 2023 - 2025+)
+            const brackets = [
+                { limit: 5000, rate: 0.00, base: 0 },
+                { limit: 20000, rate: 0.01, base: 0 },
+                { limit: 35000, rate: 0.03, base: 150 },
+                { limit: 50000, rate: 0.06, base: 600 },
+                { limit: 70000, rate: 0.11, base: 1500 },
+                { limit: 100000, rate: 0.19, base: 3700 },
+                { limit: 400000, rate: 0.25, base: 9400 },
+                { limit: 600000, rate: 0.26, base: 84400 },
+                { limit: 2000000, rate: 0.28, base: 136400 },
+                { limit: Infinity, rate: 0.30, base: 528400 }
+            ];
+
+            let totalTax = 0;
+            let baseTax = 0;
+            let balanceTax = 0;
+            let lowerLimit = 0;
+
+            for (let i = 0; i < brackets.length; i++) {
+                if (chargeableIncome <= brackets[i].limit) {
+                    baseTax = brackets[i].base;
+                    balanceTax = (chargeableIncome - lowerLimit) * brackets[i].rate;
+                    totalTax = baseTax + balanceTax;
+                    break;
+                }
+                lowerLimit = brackets[i].limit;
+            }
+
+            // Individual Tax Rebate under Section 6A (RM400 if Chargeable <= RM35,000)
+            let rebate = 0;
+            if (chargeableIncome > 0 && chargeableIncome <= 35000) {
+                rebate = 400;
+            }
+
+            const taxAfterRebate = Math.max(0, totalTax - rebate);
+
+            return { totalTax: taxAfterRebate, baseTax, balanceTax, rebate, grossTax: totalTax };
+        }
+
+        // --- CORE RECALCULATION ---
+        function saveCurrentYearAndRecalculate() {
+            const yr = taxAppState.years[taxAppState.activeYear];
+            
+            // Save Incomes
+            yr.income.emp = parseFloat(document.getElementById('in-emp').value) || 0;
+            yr.income.rent = parseFloat(document.getElementById('in-rent').value) || 0;
+            yr.income.other = parseFloat(document.getElementById('in-other').value) || 0;
+            yr.income.donations = parseFloat(document.getElementById('in-donations').value) || 0;
+            yr.income.pcb = parseFloat(document.getElementById('in-pcb').value) || 0;
+
+            saveToLocalStorage();
+            recalculateAll();
+        }
+
+        function recalculateAll() {
+            const yr = taxAppState.years[taxAppState.activeYear];
+            const aggIncome = yr.income.emp + yr.income.rent + yr.income.other;
+
+            // Sec 44(6) Donations capped at 10% of Aggregate Income
+            const donationCap = aggIncome * 0.10;
+            const approvedDonations = Math.min(yr.income.donations, donationCap);
+            const totalIncome = Math.max(0, aggIncome - approvedDonations);
+
+            // Compute Total Reliefs (applying caps)
+            let totalClaimedReliefs = 0;
+            DEFAULT_RELIEFS_CONFIG.forEach(r => {
+                const userVal = yr.reliefs[r.id] || 0;
+                totalClaimedReliefs += Math.min(userVal, r.max);
+            });
+
+            // Chargeable Income
+            const chargeableIncome = Math.max(0, totalIncome - totalClaimedReliefs);
+
+            // Calculate Tax
+            const taxCalc = calculateMalaysianTax(chargeableIncome);
+            const netBalance = taxCalc.totalTax - yr.income.pcb;
+
+            // Update UI Elements
+            const fmt = (num) => 'RM ' + num.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            document.getElementById('dash-agg-income').innerText = fmt(aggIncome);
+            document.getElementById('dash-total-reliefs').innerText = fmt(totalClaimedReliefs);
+            document.getElementById('dash-chargeable-income').innerText = fmt(chargeableIncome);
+            document.getElementById('relief-header-total').innerText = fmt(totalClaimedReliefs);
+
+            document.getElementById('lbl-b1').innerText = fmt(yr.income.emp);
+            document.getElementById('lbl-b23').innerText = fmt(yr.income.rent + yr.income.other);
+            document.getElementById('lbl-b4').innerText = fmt(aggIncome);
+            document.getElementById('lbl-b5').innerText = '- ' + fmt(approvedDonations);
+            document.getElementById('lbl-b6').innerText = fmt(totalIncome);
+            document.getElementById('lbl-b9').innerText = '- ' + fmt(totalClaimedReliefs);
+            document.getElementById('lbl-b10').innerText = fmt(chargeableIncome);
+
+            document.getElementById('lbl-tax-base').innerText = fmt(taxCalc.baseTax);
+            document.getElementById('lbl-tax-balance').innerText = fmt(taxCalc.balanceTax);
+            document.getElementById('lbl-tax-rebate').innerText = '- ' + fmt(taxCalc.rebate);
+            document.getElementById('lbl-b12').innerText = fmt(taxCalc.totalTax);
+            document.getElementById('lbl-b18').innerText = '- ' + fmt(yr.income.pcb);
+
+            const finalLbl = document.getElementById('final-label');
+            const finalAmt = document.getElementById('final-amount');
+            const finalComment = document.getElementById('final-comment');
+            const dashTaxTitle = document.getElementById('dash-tax-title');
+            const dashNetTax = document.getElementById('dash-net-tax');
+            const dashTaxSub = document.getElementById('dash-tax-subtitle');
+
+            if (netBalance < 0) {
+                const refund = Math.abs(netBalance);
+                finalLbl.innerText = "B19. Cukai Terlebih Bayar (Refund):";
+                finalAmt.innerText = fmt(refund);
+                finalAmt.className = "text-xl font-black text-emerald-600";
+                finalComment.innerText = "LHDN will refund this excess directly to your bank account.";
+
+                dashTaxTitle.innerText = "Estimated Refund";
+                dashNetTax.innerText = fmt(refund);
+                dashNetTax.className = "text-2xl font-black text-emerald-600 mt-1";
+                dashTaxSub.innerText = "Terlebih Bayar (Refund from LHDN)";
+            } else {
+                finalLbl.innerText = "B19. Baki Cukai Kena Dibayar:";
+                finalAmt.innerText = fmt(netBalance);
+                finalAmt.className = "text-xl font-black text-rose-600";
+                finalComment.innerText = "Payable to LHDNM via ByrHASIL before deadline.";
+
+                dashTaxTitle.innerText = "Balance Tax Payable";
+                dashNetTax.innerText = fmt(netBalance);
+                dashNetTax.className = "text-2xl font-black text-rose-600 mt-1";
+                dashTaxSub.innerText = "Baki Cukai Kena Bayar";
+            }
+
+            renderComparisonTable();
+        }
+
+        // --- RECEIPT VAULT ENGINE ---
+        function addReceipt() {
+            const date = document.getElementById('rec-date').value;
+            const category = document.getElementById('rec-category').value;
+            const amount = parseFloat(document.getElementById('rec-amount').value);
+            const desc = document.getElementById('rec-desc').value.trim();
+            const driveLink = document.getElementById('rec-drive').value.trim();
+
+            if (!date || isNaN(amount) || amount <= 0 || !desc) {
+                alert("Please provide a valid date, item description, and expense amount.");
+                return;
+            }
+
+            const currentYearData = taxAppState.years[taxAppState.activeYear];
+            const receiptItem = {
+                id: Date.now(),
+                date,
+                category,
+                amount,
+                desc,
+                driveLink
+            };
+
+            currentYearData.receipts.push(receiptItem);
+
+            // Automatically tally expense into the selected Relief or Donation!
+            if (category === "donation") {
+                currentYearData.income.donations += amount;
+                document.getElementById('in-donations').value = currentYearData.income.donations;
+            } else if (currentYearData.reliefs[category] !== undefined) {
+                currentYearData.reliefs[category] += amount;
+                const inputEl = document.getElementById(`input_${category}`);
+                if (inputEl) inputEl.value = currentYearData.reliefs[category];
+            }
+
+            // Reset Input Form
+            document.getElementById('rec-amount').value = '';
+            document.getElementById('rec-desc').value = '';
+            document.getElementById('rec-drive').value = '';
+
+            renderReceiptsTable();
+            saveCurrentYearAndRecalculate();
+            showToast("Receipt saved & added to relief!");
+        }
+
+        function renderReceiptsTable() {
+            const currentYearData = taxAppState.years[taxAppState.activeYear];
+            const tbody = document.getElementById('receipts-tbody');
+            const noRec = document.getElementById('no-receipts');
+            document.getElementById('rec-count').innerText = currentYearData.receipts.length;
+
+            if (currentYearData.receipts.length === 0) {
+                tbody.innerHTML = '';
+                noRec.classList.remove('hidden');
+                return;
+            }
+            noRec.classList.add('hidden');
+
+            tbody.innerHTML = currentYearData.receipts.map(r => {
+                const config = DEFAULT_RELIEFS_CONFIG.find(c => c.id === r.category);
+                const categoryName = config ? `${config.code} ${config.title}` : (r.category === 'donation' ? 'B5 Donation' : r.category);
+                const driveButton = r.driveLink 
+                    ? `<a href="${r.driveLink}" target="_blank" class="text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-1"><i class="fa-brands fa-google-drive"></i> Open File</a>` 
+                    : `<span class="text-slate-400 italic">No link</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-3 font-mono">${r.date}</td>
+                        <td class="px-5 py-3"><span class="bg-blue-50 text-lhdnBlue border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold">${categoryName}</span></td>
+                        <td class="px-5 py-3 font-medium text-slate-800">${r.desc}</td>
+                        <td class="px-5 py-3 text-right font-bold text-slate-900">RM ${r.amount.toFixed(2)}</td>
+                        <td class="px-5 py-3 text-center">${driveButton}</td>
+                        <td class="px-5 py-3 text-center">
+                            <button onclick="deleteReceipt(${r.id})" class="text-rose-500 hover:text-rose-700 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function deleteReceipt(receiptId) {
+            if (!confirm("Are you sure you want to remove this receipt record?")) return;
+            const currentYearData = taxAppState.years[taxAppState.activeYear];
+            currentYearData.receipts = currentYearData.receipts.filter(r => r.id !== receiptId);
+            renderReceiptsTable();
+            saveCurrentYearAndRecalculate();
+            showToast("Receipt removed.");
+        }
+
+        // --- MULTI-YEAR COMPARISON RENDERER ---
+        function renderComparisonTable() {
+            const tbody = document.getElementById('compare-tbody');
+            const years = ["2023", "2024", "2025", "2026"];
+
+            const calcMetricsForYear = (yrKey) => {
+                const yr = taxAppState.years[yrKey] || createInitialYearData();
+                const agg = yr.income.emp + yr.income.rent + yr.income.other;
+                const don = Math.min(yr.income.donations, agg * 0.10);
+                const totalInc = Math.max(0, agg - don);
+
+                let reliefs = 0;
+                DEFAULT_RELIEFS_CONFIG.forEach(r => {
+                    reliefs += Math.min(yr.reliefs[r.id] || 0, r.max);
+                });
+
+                const chargeable = Math.max(0, totalInc - reliefs);
+                const tax = calculateMalaysianTax(chargeable).totalTax;
+                const net = tax - yr.income.pcb;
+
+                return { agg, totalInc, reliefs, chargeable, tax, pcb: yr.income.pcb, net };
+            };
+
+            const dataByYear = {};
+            years.forEach(y => dataByYear[y] = calcMetricsForYear(y));
+
+            const fmt = (n) => 'RM ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const rows = [
+                { label: "B1. Employment Income", key: "agg" },
+                { label: "B4. Aggregate Income", key: "agg" },
+                { label: "B9. Total Reliefs Claimed", key: "reliefs" },
+                { label: "B10. Chargeable Income", key: "chargeable" },
+                { label: "B12. Total Tax Charged", key: "tax" },
+                { label: "B18. Total PCB Paid", key: "pcb" },
+                { label: "B19. Net Outcome (Payable / Refund)", key: "net", isHighlight: true }
+            ];
+
+            tbody.innerHTML = rows.map(r => {
+                return `
+                    <tr class="${r.isHighlight ? 'bg-slate-50 font-bold' : ''}">
+                        <td class="p-3 text-slate-800">${r.label}</td>
+                        ${years.map(y => {
+                            const val = dataByYear[y][r.key];
+                            if (r.key === 'net') {
+                                if (val < 0) return `<td class="p-3 text-right text-emerald-600 font-black">+ ${fmt(Math.abs(val))} (Refund)</td>`;
+                                return `<td class="p-3 text-right text-rose-600 font-black">${fmt(val)}</td>`;
+                            }
+                            return `<td class="p-3 text-right text-slate-700">${fmt(val)}</td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- JSON BACKUP (EXPORT & IMPORT) ---
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(taxAppState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `MyTax_Vault_Backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("JSON Backup downloaded successfully!");
+        }
+
+        function importJSON(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData && importedData.years) {
+                        taxAppState = importedData;
+                        saveToLocalStorage();
+                        document.getElementById('ya-select').value = taxAppState.activeYear || "2025";
+                        populateFormsForActiveYear();
+                        recalculateAll();
+                        showToast("Tax records restored successfully!");
+                    } else {
+                        alert("Invalid JSON schema for MyTax Vault.");
+                    }
+                } catch(err) {
+                    alert("Error parsing JSON file: " + err.message);
+                }
+            };
+            if (event.target.files && event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0]);
+            }
+        }
+
+        function resetCurrentYearData() {
+            if (!confirm(`Reset all entries for Assessment Year ${taxAppState.activeYear}? This cannot be undone.`)) return;
+            taxAppState.years[taxAppState.activeYear] = createInitialYearData();
+            saveToLocalStorage();
+            populateFormsForActiveYear();
+            recalculateAll();
+            showToast(`YA ${taxAppState.activeYear} data has been reset.`);
+        }
+
+        // --- PDF REPORT GENERATOR ---
+        function generatePDFReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const yr = taxAppState.activeYear;
+            const yrData = taxAppState.years[yr];
+
+            const agg = yrData.income.emp + yrData.income.rent + yrData.income.other;
+            const don = Math.min(yrData.income.donations, agg * 0.10);
+            const tot = Math.max(0, agg - don);
+
+            let claimedReliefs = 0;
+            const reliefRows = [];
+            DEFAULT_RELIEFS_CONFIG.forEach(r => {
+                const actual = yrData.reliefs[r.id] || 0;
+                const allowable = Math.min(actual, r.max);
+                if (allowable > 0) {
+                    claimedReliefs += allowable;
+                    reliefRows.push([r.code, r.title, `RM ${r.max.toLocaleString()}`, `RM ${actual.toLocaleString()}`, `RM ${allowable.toLocaleString()}`]);
+                }
+            });
+
+            const chargeable = Math.max(0, tot - claimedReliefs);
+            const tax = calculateMalaysianTax(chargeable);
+            const net = tax.totalTax - yrData.income.pcb;
+
+            // 1. PDF Title Header
+            doc.setFillColor(30, 58, 138); // LHDN Blue
+            doc.rect(0, 0, 210, 24, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text(`LEMBAGA HASIL DALAM NEGERI - BORANG BE TAX REPORT`, 14, 15);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Tahun Taksiran (YA): ${yr}  |  Generated on: ${new Date().toLocaleDateString('en-GB')}`, 14, 21);
+
+            // 2. Summary Computation Table
+            doc.setTextColor(30, 41, 59);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("1. PENGIRAAN CUKAI PENDAPATAN (SUMMARY COMPUTATION)", 14, 34);
+
+            const summaryBody = [
+                ["B1", "Pendapatan Berkanun Penggajian (Employment)", `RM ${yrData.income.emp.toFixed(2)}`],
+                ["B2/B3", "Pendapatan Berkanun Lain (Rents/Royalties)", `RM ${(yrData.income.rent + yrData.income.other).toFixed(2)}`],
+                ["B4", "JUMLAH PENDAPATAN AGREGAT", `RM ${agg.toFixed(2)}`],
+                ["B5", "Tolak: Derma / Hadiah yang Diluluskan (Capped 10%)", `- RM ${don.toFixed(2)}`],
+                ["B9", "Tolak: Jumlah Pelepasan Cukai (Bahagian F)", `- RM ${claimedReliefs.toFixed(2)}`],
+                ["B10", "PENDAPATAN BERCUKAI (CHARGEABLE INCOME)", `RM ${chargeable.toFixed(2)}`],
+                ["B12", "Jumlah Cukai Dikenakan (Tax on Brackets minus Rebates)", `RM ${tax.totalTax.toFixed(2)}`],
+                ["B18", "Tolak: Potongan Cukai Bulanan (PCB) Dibayar", `- RM ${yrData.income.pcb.toFixed(2)}`],
+                ["B19", net < 0 ? "CUKAI TERLEBIH BAYAR (REFUND FROM LHDN)" : "BAKI CUKAI KENA DIBAYAR (BALANCE TAX PAYABLE)", `RM ${Math.abs(net).toFixed(2)}`]
+            ];
+
+            doc.autoTable({
+                startY: 38,
+                head: [["Kod", "Item / Penerangan", "Amaun (RM)"]],
+                body: summaryBody,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 58, 138] },
+                styles: { fontSize: 8.5 }
+            });
+
+            // 3. Tax Reliefs Claimed Table
+            let nextY = doc.lastAutoTable.finalY + 10;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text("2. SENARAI PELEPASAN CUKAI DITUNTUT (TAX RELIEFS BREAKDOWN)", 14, nextY);
+
+            doc.autoTable({
+                startY: nextY + 4,
+                head: [["Kod", "Kategori Pelepasan", "Had Maksimum", "Resit/Perbelanjaan", "Amaun Dituntut"]],
+                body: reliefRows.length > 0 ? reliefRows : [["-", "Tiada pelepasan tambahan dituntut", "-", "-", "RM 0.00"]],
+                theme: 'grid',
+                headStyles: { fillColor: [15, 23, 42] },
+                styles: { fontSize: 8 }
+            });
+
+            // 4. Receipts & Google Drive Audit Trail Table
+            nextY = doc.lastAutoTable.finalY + 10;
+            if (nextY > 240) { doc.addPage(); nextY = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text("3. RESIT PEMBUKTIAN & PAUTAN GOOGLE DRIVE (AUDIT TRAIL)", 14, nextY);
+
+            const receiptRows = yrData.receipts.map(r => [
+                r.date,
+                r.desc,
+                `RM ${r.amount.toFixed(2)}`,
+                r.driveLink || "Tiada pautan fail"
+            ]);
+
+            doc.autoTable({
+                startY: nextY + 4,
+                head: [["Tarikh", "Perihal / Resit", "Jumlah", "Pautan Google Drive"]],
+                body: receiptRows.length > 0 ? receiptRows : [["-", "Tiada resit dilampirkan", "-", "-"]],
+                theme: 'striped',
+                headStyles: { fillColor: [51, 65, 85] },
+                styles: { fontSize: 7.5 }
+            });
+
+            doc.save(`LHDN_Tax_Report_YA${yr}_${new Date().toISOString().slice(0,10)}.pdf`);
+            showToast("Official PDF Report Generated!");
+        }
+
+        // --- NAVIGATION TABS ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            const btn = document.getElementById(`btn-${tabId}`);
+            if (btn) btn.classList.add('active');
+
+            const headings = {
+                'dashboard': 'Dashboard Overview',
+                'income': 'Income Declaration (Borang B)',
+                'reliefs': 'Pelepasan Cukai (Tax Reliefs)',
+                'vault': 'Receipt Vault & Google Drive Links',
+                'compare': 'Multi-Year Assessment Comparison'
+            };
+            document.getElementById('tab-heading').innerText = headings[tabId] || 'Tax Overview';
+        }
+
+        // --- INITIALIZATION ON LOAD ---
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFromLocalStorage();
+            populateFormsForActiveYear();
+            recalculateAll();
+        });
+    </script>
+</body>
+</html>

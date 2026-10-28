@@ -1,0 +1,6 @@
+{
+  "name": "MyTax Vault Malaysia - LHDN BE Tax Companion & Receipt Storage",
+  "description": "Comprehensive Malaysian LHDN Borang BE personal tax vault, AI receipt scanner, multi-year comparison (2019-2026), tax optimizer, and offline storage with Google Drive audit trails.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
